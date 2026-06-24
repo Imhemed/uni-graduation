@@ -1,0 +1,493 @@
+---
+import PortalLayout from '../../layouts/PortalLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<PortalLayout title="الإدارة — المالية الجامعية" active="admin">
+  <div class="head">
+    <div>
+      <h1 class="page-title">الإدارة</h1>
+      <p class="page-subtitle">إدارة التخصصات والفصول الدراسية وحسابات الموظفين.</p>
+    </div>
+  </div>
+
+  <div class="tabs no-print" role="tablist">
+    <button class="tab active" data-tab="majors" type="button" role="tab">التخصصات</button>
+    <button class="tab" data-tab="semesters" type="button" role="tab">الفصول الدراسية</button>
+    <button class="tab" data-tab="staff" type="button" role="tab">الموظفون</button>
+  </div>
+
+  <!-- ===== Majors ===== -->
+  <section class="panel" id="panel-majors">
+    <div class="panel-head">
+      <h2 class="card-title">التخصصات</h2>
+      <button class="btn btn-primary btn-sm" type="button" data-add="majors">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        تخصص جديد
+      </button>
+    </div>
+    <div class="state row" data-state="majors"><span class="spinner"></span><span class="muted">جارٍ التحميل…</span></div>
+    <div class="card list-card hidden" data-card="majors">
+      <table class="table">
+        <thead><tr><th>التخصص</th><th>عدد المقررات</th><th>سعر المقرر</th><th>الرسوم الأساسية</th><th class="actions-col">إجراءات</th></tr></thead>
+        <tbody data-body="majors"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Semesters ===== -->
+  <section class="panel hidden" id="panel-semesters">
+    <div class="panel-head">
+      <h2 class="card-title">الفصول الدراسية</h2>
+      <button class="btn btn-primary btn-sm" type="button" data-add="semesters">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        فصل جديد
+      </button>
+    </div>
+    <div class="state row" data-state="semesters"><span class="spinner"></span><span class="muted">جارٍ التحميل…</span></div>
+    <div class="card list-card hidden" data-card="semesters">
+      <table class="table">
+        <thead><tr><th>الفصل</th><th>تاريخ البداية</th><th>تاريخ النهاية</th><th>الحالة</th><th class="actions-col">إجراءات</th></tr></thead>
+        <tbody data-body="semesters"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Staff ===== -->
+  <section class="panel hidden" id="panel-staff">
+    <div class="panel-head">
+      <h2 class="card-title">الموظفون</h2>
+      <button class="btn btn-primary btn-sm" type="button" data-add="staff">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        موظف جديد
+      </button>
+    </div>
+    <div class="state row" data-state="staff"><span class="spinner"></span><span class="muted">جارٍ التحميل…</span></div>
+    <div class="card list-card hidden" data-card="staff">
+      <table class="table">
+        <thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>الهاتف</th><th class="actions-col">إجراءات</th></tr></thead>
+        <tbody data-body="staff"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Shared modal ===== -->
+  <div id="admin-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card card card-pad" role="dialog" aria-modal="true">
+      <div class="between modal-top">
+        <h2 class="card-title" id="modal-title">—</h2>
+        <button class="btn btn-ghost btn-icon" id="modal-close" type="button" aria-label="إغلاق">✕</button>
+      </div>
+      <div id="modal-error" class="alert alert-danger hidden" role="alert"></div>
+      <form id="modal-form" class="stack" novalidate></form>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="modal-save" type="submit" form="modal-form">حفظ</button>
+        <button class="btn btn-outline" id="modal-cancel" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Confirm modal ===== -->
+  <div id="confirm-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card card card-pad confirm-card" role="alertdialog" aria-modal="true">
+      <h2 class="card-title" id="confirm-title">تأكيد</h2>
+      <p class="muted" id="confirm-msg"></p>
+      <div id="confirm-error" class="alert alert-danger hidden" role="alert"></div>
+      <div class="modal-actions">
+        <button class="btn" id="confirm-ok" type="button">تأكيد</button>
+        <button class="btn btn-outline" id="confirm-cancel" type="button">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { requireAuth, getCurrentUser } from '../../lib/auth.js';
+    import { getConfig } from '../../lib/config.js';
+    import { formatMoney, formatDate, toInputDate } from '../../lib/format.js';
+    import {
+      listMajors, createMajor, updateMajor, deleteMajor,
+      listSemesters, createSemester, updateSemester, deleteSemester,
+      listEmployees, createEmployee, updateEmployee, deleteEmployee, resetEmployeePassword,
+    } from '../../lib/api/endpoints.js';
+
+    // Manager-gated (UX guard; backend enforces too). Redirects non-managers home.
+    if (requireAuth('manager')) {
+      let currency = 'LYD';
+      const ROLE_LABEL = { employee: 'موظف', manager: 'مدير', superadmin: 'مسؤول النظام' };
+
+      const $ = (s) => document.querySelector(s);
+      const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+      // ---------- tabs ----------
+      document.querySelectorAll('.tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const tab = btn.dataset.tab;
+          document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b === btn));
+          document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('hidden', p.id !== `panel-${tab}`));
+        });
+      });
+
+      // ---------- generic list rendering ----------
+      function setState(name, html) {
+        const el = document.querySelector(`[data-state="${name}"]`);
+        if (html === null) { el.classList.add('hidden'); return; }
+        el.innerHTML = html;
+        el.classList.remove('hidden');
+      }
+      function showCard(name, rowsHtml) {
+        document.querySelector(`[data-body="${name}"]`).innerHTML = rowsHtml;
+        document.querySelector(`[data-card="${name}"]`).classList.remove('hidden');
+        setState(name, null);
+      }
+      function failState(name, msg) {
+        document.querySelector(`[data-card="${name}"]`).classList.add('hidden');
+        setState(name, `<span class="text-danger">${esc(msg || 'تعذّر التحميل.')}</span>`);
+      }
+
+      function actionsCell(entity, id, extra = '') {
+        return `<td class="row-actions">
+          ${extra}
+          <button class="btn btn-outline btn-sm" data-edit="${entity}" data-id="${id}">تعديل</button>
+          <button class="btn btn-outline-danger btn-sm" data-del="${entity}" data-id="${id}">حذف</button>
+        </td>`;
+      }
+
+      // ---------- majors ----------
+      async function loadMajors() {
+        try {
+          const majors = await listMajors();
+          if (!majors.length) { document.querySelector('[data-card="majors"]').classList.add('hidden'); setState('majors', '<span class="muted">لا توجد تخصصات.</span>'); return; }
+          showCard('majors', majors.map((m) => `<tr>
+            <td><strong>${esc(m.name)}</strong></td>
+            <td class="tabular">${m.courses_count ?? 0}</td>
+            <td class="tabular">${formatMoney(m.price_per_course, currency)}</td>
+            <td class="tabular">${formatMoney(m.semester_base_fee, currency)}</td>
+            ${actionsCell('majors', m.id)}
+          </tr>`).join(''));
+        } catch (err) { failState('majors', err?.message); }
+      }
+
+      // ---------- semesters ----------
+      async function loadSemesters() {
+        try {
+          const sems = await listSemesters();
+          if (!sems.length) { document.querySelector('[data-card="semesters"]').classList.add('hidden'); setState('semesters', '<span class="muted">لا توجد فصول.</span>'); return; }
+          showCard('semesters', sems.map((s) => `<tr>
+            <td><strong>${esc(s.name)}</strong></td>
+            <td>${formatDate(s.start_date)}</td>
+            <td>${formatDate(s.end_date)}</td>
+            <td>${s.is_active ? '<span class="badge badge-success">نشط</span>' : '<span class="badge badge-muted">غير نشط</span>'}</td>
+            ${actionsCell('semesters', s.id)}
+          </tr>`).join(''));
+        } catch (err) { failState('semesters', err?.message); }
+      }
+
+      // ---------- staff ----------
+      async function loadStaff() {
+        try {
+          const me = getCurrentUser();
+          const isSuper = me?.role === 'superadmin';
+          const staff = await listEmployees();
+          showCard('staff', staff.map((e) => {
+            const locked = e.role === 'superadmin';
+            // Only a superadmin may set another user's password.
+            const pw = (isSuper && String(e.id) !== String(me?.id))
+              ? `<button class="btn btn-outline btn-sm" data-pw="${e.id}">كلمة المرور</button>` : '';
+            if (locked) {
+              return `<tr>
+                <td><strong>${esc(e.full_name)}</strong></td>
+                <td class="tabular">${esc(e.username)}</td>
+                <td><span class="badge badge-info">${ROLE_LABEL[e.role]}</span></td>
+                <td>${esc(e.phone || '—')}</td>
+                <td class="row-actions">${pw || '<span class="muted small">محميّ</span>'}</td>
+              </tr>`;
+            }
+            return `<tr>
+              <td><strong>${esc(e.full_name)}</strong></td>
+              <td class="tabular">${esc(e.username)}</td>
+              <td><span class="badge badge-muted">${ROLE_LABEL[e.role] || esc(e.role)}</span></td>
+              <td>${esc(e.phone || '—')}</td>
+              ${actionsCell('staff', e.id, pw)}
+            </tr>`;
+          }).join(''));
+        } catch (err) { failState('staff', err?.message); }
+      }
+
+      const reload = { majors: loadMajors, semesters: loadSemesters, staff: loadStaff };
+
+      // ---------- modal ----------
+      const modal = $('#admin-modal');
+      const modalForm = $('#modal-form');
+      const modalErr = $('#modal-error');
+      let ctx = { entity: null, id: null };
+
+      function fieldText(label, name, value = '', { type = 'text', required = true, hint = '', placeholder = '', step = '0.01', min = '0' } = {}) {
+        const numAttrs = type === 'number' ? `min="${min}" step="${step}"` : '';
+        return `<div class="field">
+          <label class="field-label" for="f-${name}">${label}${required ? ' <span class="req">*</span>' : ''}</label>
+          <input class="input" id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" placeholder="${esc(placeholder)}" ${numAttrs} />
+          ${hint ? `<span class="field-hint">${hint}</span>` : ''}
+        </div>`;
+      }
+
+      const FORMS = {
+        majors: (m) => `
+          ${fieldText('اسم التخصص', 'name', m?.name || '', { placeholder: 'مثال: علوم الحاسب' })}
+          ${fieldText('عدد المقررات', 'courses_count', m?.courses_count ?? '', { type: 'number', step: '1', placeholder: 'مثال: 40' })}
+          <div class="grid-2">
+            ${fieldText('سعر المقرر', 'price_per_course', m?.price_per_course ?? '', { type: 'number', placeholder: 'مثال: 200' })}
+            ${fieldText('الرسوم الأساسية للفصل', 'semester_base_fee', m?.semester_base_fee ?? '', { type: 'number', placeholder: 'مثال: 150' })}
+          </div>`,
+        semesters: (s) => `
+          ${fieldText('اسم الفصل', 'name', s?.name || '', { hint: 'مثال: خريف 2026' })}
+          <div class="grid-2">
+            ${fieldText('تاريخ البداية', 'start_date', toInputDate(s?.start_date), { type: 'date' })}
+            ${fieldText('تاريخ النهاية', 'end_date', toInputDate(s?.end_date), { type: 'date' })}
+          </div>
+          <label class="check"><input type="checkbox" name="is_active" ${s?.is_active ? 'checked' : ''} /> <span>تعيينه كفصل نشط (سيُلغى تنشيط الفصول الأخرى)</span></label>`,
+        staff: (e) => {
+          const roleOpts = ['employee', 'manager']
+            .map((r) => `<option value="${r}" ${e?.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('');
+          return `
+            ${fieldText('الاسم الكامل', 'full_name', e?.full_name || '')}
+            ${fieldText('اسم المستخدم', 'username', e?.username || '', { required: !e })}
+            <div class="grid-2">
+              <div class="field">
+                <label class="field-label" for="f-role">الدور <span class="req">*</span></label>
+                <select class="input" id="f-role" name="role">${roleOpts}</select>
+              </div>
+              ${fieldText('رقم الهاتف', 'phone', e?.phone || '', { required: false })}
+            </div>
+            ${e ? '' : '<span class="field-hint">سيتم استخدام كلمة مرور افتراضية يمكن تغييرها لاحقًا.</span>'}`;
+        },
+        password: (e) => `
+          <p class="muted">تعيين كلمة مرور جديدة للموظف <strong>${esc(e?.full_name || '')}</strong>.</p>
+          ${fieldText('كلمة المرور الجديدة', 'password', '', { type: 'password', placeholder: '4 أحرف على الأقل' })}`,
+      };
+
+      const TITLES = {
+        majors: (edit) => (edit ? 'تعديل تخصص' : 'تخصص جديد'),
+        semesters: (edit) => (edit ? 'تعديل فصل دراسي' : 'فصل دراسي جديد'),
+        staff: (edit) => (edit ? 'تعديل موظف' : 'موظف جديد'),
+        password: () => 'تعيين كلمة المرور',
+      };
+
+      function openModal(entity, item = null) {
+        ctx = { entity, id: item?.id ?? null };
+        $('#modal-title').textContent = TITLES[entity](Boolean(item));
+        modalForm.innerHTML = FORMS[entity](item);
+        // username can't be changed once created
+        if (entity === 'staff' && item) {
+          const u = modalForm.querySelector('[name="username"]');
+          if (u) u.disabled = true;
+        }
+        modalErr.classList.add('hidden');
+        modal.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+        modalForm.querySelector('input, select')?.focus();
+      }
+      function closeModal() {
+        modal.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+      }
+
+      function collect(entity) {
+        const f = modalForm;
+        if (entity === 'majors') {
+          return {
+            name: f.name.value.trim(),
+            courses_count: parseInt(f.courses_count.value || '0', 10) || 0,
+            price_per_course: Number(f.price_per_course.value || 0),
+            semester_base_fee: Number(f.semester_base_fee.value || 0),
+          };
+        }
+        if (entity === 'semesters') {
+          return {
+            name: f.name.value.trim(),
+            start_date: f.start_date.value,
+            end_date: f.end_date.value,
+            is_active: f.is_active.checked,
+          };
+        }
+        // staff
+        const body = { full_name: f.full_name.value.trim(), role: f.role.value, phone: f.phone.value.trim() || null };
+        if (!ctx.id) body.username = f.username.value.trim();
+        return body;
+      }
+
+      const CREATE = { majors: createMajor, semesters: createSemester, staff: createEmployee };
+      const UPDATE = { majors: updateMajor, semesters: updateSemester, staff: updateEmployee };
+      const DELETE = { majors: deleteMajor, semesters: deleteSemester, staff: deleteEmployee };
+
+      modalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        modalErr.classList.add('hidden');
+        const { entity, id } = ctx;
+        const saveBtn = $('#modal-save');
+        saveBtn.disabled = true; saveBtn.textContent = 'جارٍ الحفظ…';
+        try {
+          if (entity === 'password') {
+            const pwd = modalForm.password.value;
+            if (pwd.length < 4) throw { message: 'كلمة المرور يجب ألا تقل عن 4 أحرف.' };
+            await resetEmployeePassword(id, { password: pwd });
+            closeModal();
+            toast('تم تحديث كلمة المرور.');
+          } else {
+            const body = collect(entity);
+            if (id) await UPDATE[entity](id, body);
+            else await CREATE[entity](body);
+            closeModal();
+            await reload[entity]();
+          }
+        } catch (err) {
+          modalErr.textContent = err?.message || 'تعذّر الحفظ.';
+          modalErr.classList.remove('hidden');
+        } finally {
+          saveBtn.disabled = false; saveBtn.textContent = 'حفظ';
+        }
+      });
+
+      $('#modal-close').addEventListener('click', closeModal);
+      $('#modal-cancel').addEventListener('click', closeModal);
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (!modal.classList.contains('hidden')) closeModal();
+        else if (!confirmModal.classList.contains('hidden')) closeConfirm();
+      });
+
+      // ---------- confirm modal ----------
+      const confirmModal = $('#confirm-modal');
+      const confirmOk = $('#confirm-ok');
+      const confirmErr = $('#confirm-error');
+      let confirmHandler = null;
+
+      function openConfirm({ title, message, okLabel = 'تأكيد', danger = false }, handler) {
+        $('#confirm-title').textContent = title;
+        $('#confirm-msg').textContent = message;
+        confirmOk.textContent = okLabel;
+        confirmOk.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        confirmErr.classList.add('hidden');
+        confirmHandler = handler;
+        confirmModal.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+        confirmOk.focus();
+      }
+      function closeConfirm() {
+        confirmModal.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        confirmHandler = null;
+      }
+      confirmOk.addEventListener('click', async () => {
+        confirmErr.classList.add('hidden');
+        const label = confirmOk.textContent;
+        confirmOk.disabled = true; confirmOk.textContent = 'جارٍ…';
+        try {
+          await confirmHandler?.();
+          closeConfirm();
+        } catch (err) {
+          confirmErr.textContent = err?.message || 'تعذّر إتمام الإجراء.';
+          confirmErr.classList.remove('hidden');
+        } finally {
+          confirmOk.disabled = false; confirmOk.textContent = label;
+        }
+      });
+      $('#confirm-cancel').addEventListener('click', closeConfirm);
+      confirmModal.addEventListener('click', (e) => { if (e.target === confirmModal) closeConfirm(); });
+
+      // ---------- toast ----------
+      let toastTimer = null;
+      function toast(message, kind = 'success') {
+        const t = $('#toast');
+        t.textContent = message;
+        t.className = `toast toast-${kind}`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.add('hidden'), 3200);
+      }
+
+      // ---------- add / edit / delete / password (event delegation) ----------
+      document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => openModal(b.dataset.add)));
+
+      const CACHE = { majors: listMajors, semesters: listSemesters, staff: listEmployees };
+      document.addEventListener('click', async (e) => {
+        const editBtn = e.target.closest('[data-edit]');
+        const delBtn = e.target.closest('[data-del]');
+        const pwBtn = e.target.closest('[data-pw]');
+
+        if (editBtn) {
+          const entity = editBtn.dataset.edit;
+          const items = await CACHE[entity]();
+          const item = items.find((x) => String(x.id) === String(editBtn.dataset.id));
+          if (item) openModal(entity, item);
+          return;
+        }
+        if (delBtn) {
+          const entity = delBtn.dataset.del;
+          const id = delBtn.dataset.id;
+          openConfirm(
+            { title: 'تأكيد الحذف', message: 'لا يمكن التراجع عن هذا الإجراء.', okLabel: 'حذف', danger: true },
+            async () => { await DELETE[entity](id); await reload[entity](); },
+          );
+          return;
+        }
+        if (pwBtn) {
+          const items = await listEmployees();
+          const emp = items.find((x) => String(x.id) === String(pwBtn.dataset.pw));
+          if (emp) openModal('password', emp);
+        }
+      });
+
+      // ---------- init ----------
+      (async () => {
+        currency = (await getConfig()).currency;
+        loadMajors();
+        loadSemesters();
+        loadStaff();
+      })();
+    }
+  </script>
+
+  <style>
+    .head { margin-block-end: var(--space-5); }
+    .tabs { display: flex; gap: var(--space-2); border-block-end: 1px solid var(--color-border); margin-block-end: var(--space-5); flex-wrap: wrap; }
+    .tab {
+      padding: 10px 18px; border: none; background: transparent; cursor: pointer;
+      font-weight: 600; font-size: 0.95rem; color: var(--color-muted);
+      border-block-end: 2px solid transparent; margin-block-end: -1px;
+    }
+    .tab:hover { color: var(--color-heading); }
+    .tab.active { color: var(--color-primary); border-block-end-color: var(--color-primary); }
+
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-block-end: var(--space-4); flex-wrap: wrap; }
+    .state { margin-block-start: var(--space-3); }
+    .list-card { overflow: hidden; }
+    .actions-col { width: 1%; white-space: nowrap; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: var(--space-6) var(--space-4); overflow-y: auto;
+    }
+    .modal-card { width: 100%; max-width: 520px; gap: var(--space-4); display: flex; flex-direction: column; }
+    .modal-top { margin-block-end: 0; }
+    .modal-actions { display: flex; gap: var(--space-3); margin-block-start: var(--space-2); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    .check { display: flex; align-items: center; gap: var(--space-2); font-size: 0.9rem; cursor: pointer; }
+    .check input { width: 16px; height: 16px; }
+    .confirm-card { max-width: 420px; align-items: stretch; }
+    @media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .toast {
+      position: fixed; inset-block-end: var(--space-5); inset-inline: 0;
+      margin-inline: auto; width: fit-content; max-width: 90vw; z-index: 200;
+      padding: 12px 20px; border-radius: var(--radius-sm);
+      font-weight: 600; font-size: 0.9rem; box-shadow: var(--shadow-lg);
+    }
+    .toast-success { background: var(--color-success); color: #fff; }
+    .toast-danger { background: var(--color-danger); color: #fff; }
+  </style>
+</PortalLayout>

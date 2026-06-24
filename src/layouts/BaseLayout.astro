@@ -1,0 +1,21 @@
+---
+import '@fontsource-variable/cairo';
+import '../styles/tokens.css';
+import '../styles/global.css';
+
+const { title = 'المالية الجامعية' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
+    <meta name="color-scheme" content="light" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

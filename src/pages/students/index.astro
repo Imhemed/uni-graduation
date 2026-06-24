@@ -1,0 +1,108 @@
+---
+import PortalLayout from '../../layouts/PortalLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<PortalLayout title="الطلاب — المالية الجامعية" active="students">
+  <div class="between head">
+    <div>
+      <h1 class="page-title">الطلاب</h1>
+      <p class="page-subtitle">ابحث عن طالب لإدارة حسابه، أو بدء فصل، أو معالجة دفعة.</p>
+    </div>
+    <a class="btn btn-primary" href={`${base}students/new`}>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+      تسجيل طالب جديد
+    </a>
+  </div>
+
+  <div class="card card-pad filter-bar">
+    <div class="field grow">
+      <label class="field-label" for="q">بحث (رقم الطالب أو الاسم)</label>
+      <input class="input" id="q" type="search" autocomplete="off" placeholder="مثال: 202600123 أو أحمد" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="major">التخصص</label>
+      <select class="input" id="major"><option value="">كل التخصصات</option></select>
+    </div>
+  </div>
+
+  <div id="list-state" class="row" style="margin-block-start:16px"><span class="spinner"></span><span class="muted">جارٍ التحميل…</span></div>
+
+  <div class="card list-card hidden" id="list-card">
+    <table class="table">
+      <thead>
+        <tr><th>الاسم</th><th>المعرّف</th><th>التخصص</th><th>إجراءات</th></tr>
+      </thead>
+      <tbody id="list-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { searchStudents, listMajors } from '../../lib/api/endpoints.js';
+
+    const base = import.meta.env.BASE_URL;
+    const stateEl = document.getElementById('list-state');
+    const listCard = document.getElementById('list-card');
+    const body = document.getElementById('list-body');
+    const qEl = document.getElementById('q');
+    const majorEl = document.getElementById('major');
+    let timer = null;
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    (async () => {
+      try {
+        const majors = await listMajors();
+        for (const m of majors) {
+          const o = document.createElement('option');
+          o.value = m.id; o.textContent = m.name;
+          majorEl.appendChild(o);
+        }
+      } catch { /* non-fatal */ }
+      await render();
+    })();
+
+    function rowHtml(s) {
+      return `<tr>
+        <td><strong>${esc(s.full_name)}</strong></td>
+        <td class="tabular">${esc(s.university_id)}</td>
+        <td>${esc(s.major_name) || '—'}</td>
+        <td class="row-actions">
+          <a class="btn btn-outline btn-sm" href="${base}students/account?id=${s.id}">الحساب والدفع</a>
+          <a class="btn btn-ghost btn-sm" href="${base}students/start-semester?id=${s.id}">بدء فصل</a>
+        </td>
+      </tr>`;
+    }
+
+    async function render() {
+      stateEl.classList.remove('hidden');
+      try {
+        const items = await searchStudents({ search: qEl.value.trim(), major_id: majorEl.value });
+        if (!items.length) {
+          listCard.classList.add('hidden');
+          stateEl.innerHTML = '<span class="muted">لا يوجد طلاب مطابقون.</span>';
+          return;
+        }
+        body.innerHTML = items.map(rowHtml).join('');
+        stateEl.classList.add('hidden');
+        listCard.classList.remove('hidden');
+      } catch (err) {
+        listCard.classList.add('hidden');
+        stateEl.innerHTML = `<span class="text-danger">${err?.message || 'تعذّر تحميل القائمة.'}</span>`;
+      }
+    }
+
+    const debounced = () => { clearTimeout(timer); timer = setTimeout(render, 220); };
+    qEl.addEventListener('input', debounced);
+    majorEl.addEventListener('change', render);
+  </script>
+
+  <style>
+    .head { margin-block-end: var(--space-5); flex-wrap: wrap; gap: var(--space-3); }
+    .filter-bar { display: flex; gap: var(--space-4); align-items: flex-end; flex-wrap: wrap; }
+    .filter-bar .field { min-width: 200px; }
+    .list-card { overflow: hidden; margin-block-start: var(--space-4); }
+    /* .row-actions is styled globally — rows are injected via innerHTML and don't
+       carry this component's scoped attribute, so a scoped rule wouldn't apply. */
+  </style>
+</PortalLayout>

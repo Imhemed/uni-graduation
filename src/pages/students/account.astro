@@ -1,0 +1,247 @@
+---
+import PortalLayout from '../../layouts/PortalLayout.astro';
+import ReceiptModal from '../../components/ReceiptModal.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<PortalLayout title="حساب الطالب — المالية الجامعية" active="students">
+  <nav class="breadcrumb"><a href={base}>لوحة التحكم</a> <span>›</span> <span>الطلاب</span> <span>›</span> <strong id="bc-name">…</strong></nav>
+
+  <div id="acct-loading" class="row"><span class="spinner"></span><span class="muted">جارٍ تحميل بيانات الطالب…</span></div>
+  <div id="acct-error" class="alert alert-danger hidden" role="alert"></div>
+
+  <div id="acct-content" class="hidden stack">
+    <header class="card card-pad student-header" id="student-header"></header>
+    <div class="acct-grid">
+      <section class="card card-pad" id="balance-card"></section>
+      <section class="card card-pad" id="semester-card"></section>
+    </div>
+    <section class="card" id="history-card"></section>
+  </div>
+
+  <ReceiptModal />
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { getStudentSummary, createPayment, getReceipt } from '../../lib/api/endpoints.js';
+    import { getConfig } from '../../lib/config.js';
+    import { formatMoney, formatDate } from '../../lib/format.js';
+    import { paidPercent } from '../../lib/money.js';
+    import { openReceiptModal } from '../../lib/receipt.js';
+
+    const base = import.meta.env.BASE_URL;
+    const STATUS_LABELS = { Active: 'نشط', Completed: 'مكتمل', Withdrawn: 'منسحب', Suspended: 'موقوف' };
+    const id = new URLSearchParams(location.search).get('id');
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const statusLabel = (s) => STATUS_LABELS[s] || esc(s);
+
+    const loading = document.getElementById('acct-loading');
+    const errorBox = document.getElementById('acct-error');
+    const content = document.getElementById('acct-content');
+    let currency = 'LYD';
+
+    function fail(msg) {
+      loading.classList.add('hidden');
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    function renderHeader(s) {
+      const initial = esc((s.full_name || '?').trim().charAt(0));
+      const startBtn = `<a class="btn btn-outline" href="${base}students/start-semester?id=${s.id}">+ بدء فصل دراسي جديد</a>`;
+      document.getElementById('student-header').innerHTML = `
+        <div class="sh-main">
+          <div class="sh-avatar">${initial}</div>
+          <div>
+            <h1 class="sh-name">${esc(s.full_name)}</h1>
+            <div class="sh-meta">
+              <span>المعرّف: <strong>${esc(s.university_id)}</strong></span>
+              <span>التخصص: <strong>${esc(s.major_name) || '—'}</strong></span>
+              ${s.email ? `<span>${esc(s.email)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="sh-actions">${startBtn}</div>`;
+      document.getElementById('bc-name').textContent = s.full_name;
+    }
+
+    function renderBalance(cur) {
+      const card = document.getElementById('balance-card');
+      if (!cur) {
+        card.innerHTML = `<h2 class="card-title">رصيد الحساب</h2>
+          <p class="muted" style="margin-block-start:12px">لا يوجد فصل دراسي مسجَّل بعد.</p>`;
+        return;
+      }
+      const pct = paidPercent(cur.total_cost, cur.total_paid);
+      card.innerHTML = `
+        <h2 class="card-title">رصيد الحساب — ${esc(cur.semester_name)}</h2>
+        <div class="bal-amount ${cur.remaining > 0 ? 'text-danger' : 'text-success'}">${formatMoney(cur.remaining, currency)}</div>
+        <div class="bal-sub muted">الرصيد المتبقّي</div>
+        <div class="bal-rows">
+          <div class="between"><span class="muted">إجمالي تكلفة الفصل</span><strong>${formatMoney(cur.total_cost, currency)}</strong></div>
+          <div class="between"><span class="muted">الإجمالي المدفوع</span><strong class="text-success">- ${formatMoney(cur.total_paid, currency)}</strong></div>
+          <div class="between"><span>المستحق الحالي</span><strong class="${cur.remaining > 0 ? 'text-danger' : 'text-success'}">${formatMoney(cur.remaining, currency)}</strong></div>
+        </div>
+        <div class="bal-progress">
+          <div class="between small muted"><span>المدفوع: ${pct}%</span><span>المتبقّي: ${100 - pct}%</span></div>
+          <div class="progress"><span style="width:${pct}%"></span></div>
+        </div>`;
+    }
+
+    function renderSemester(s, cur) {
+      const card = document.getElementById('semester-card');
+      if (!cur) {
+        card.innerHTML = `<h2 class="card-title">الفصل الدراسي الحالي</h2>
+          <div class="empty-sem">
+            <p class="muted">لم يبدأ هذا الطالب أي فصل دراسي.</p>
+            <a class="btn btn-primary" href="${base}students/start-semester?id=${s.id}">بدء فصل دراسي جديد</a>
+          </div>`;
+        return;
+      }
+      const statusBadge = `<span class="badge ${cur.status === 'Active' ? 'badge-info' : 'badge-muted'}">${statusLabel(cur.status)}</span>`;
+      let payBlock;
+      if (cur.remaining > 0) {
+        payBlock = `
+          <form id="pay-form" class="pay-form">
+            <h3 class="section-h">إجراء دفع</h3>
+            <div class="grid-2">
+              <div class="field">
+                <label class="field-label" for="pay-amount">المبلغ المستحق للدفع</label>
+                <div class="amount-row">
+                  <input class="input" id="pay-amount" type="number" min="0.01" step="0.01" max="${cur.remaining}" value="${cur.remaining}" />
+                  <button class="btn btn-outline btn-sm" type="button" id="pay-full">كامل</button>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="pay-method">طريقة الدفع</label>
+                <select class="input" id="pay-method">
+                  <option value="نقدًا">نقدًا</option>
+                  <option value="بطاقة">بطاقة ائتمان/خصم</option>
+                  <option value="تحويل بنكي">تحويل بنكي</option>
+                </select>
+              </div>
+            </div>
+            <div id="pay-error" class="alert alert-danger hidden"></div>
+            <button class="btn btn-success btn-block" type="submit" id="pay-btn">تسجيل الدفعة وطباعة الإيصال</button>
+          </form>`;
+      } else {
+        payBlock = `<div class="alert alert-success" style="margin-block-start:16px">تم سداد هذا الفصل بالكامل ✓</div>`;
+      }
+      const printBtn = cur.last_payment_id
+        ? `<button class="btn btn-outline btn-sm" type="button" id="reprint-btn">
+             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" /></svg>
+             طباعة آخر إيصال
+           </button>`
+        : '';
+      card.innerHTML = `
+        <div class="between"><h2 class="card-title">حالة الفصل الدراسي الحالي</h2>${statusBadge}</div>
+        <div class="sem-grid">
+          <div class="sem-cell"><span class="muted">الفصل</span><strong>${esc(cur.semester_name)}</strong></div>
+          <div class="sem-cell"><span class="muted">المقررات</span><strong>${cur.courses_count}</strong></div>
+          <div class="sem-cell"><span class="muted">سعر المقرر</span><strong>${formatMoney(cur.course_price, currency)}</strong></div>
+          <div class="sem-cell"><span class="muted">الرسوم الأساسية</span><strong>${formatMoney(cur.base_fee, currency)}</strong></div>
+        </div>
+        ${payBlock}
+        ${printBtn ? `<div class="sem-actions">${printBtn}</div>` : ''}`;
+      if (cur.remaining > 0) wirePayForm(s, cur);
+      if (cur.last_payment_id) {
+        document.getElementById('reprint-btn')?.addEventListener('click', async () => {
+          errorBox.classList.add('hidden');
+          try {
+            openReceiptModal(await getReceipt(cur.last_payment_id), currency);
+          } catch (err) {
+            errorBox.textContent = err?.message || 'تعذّر تحميل الإيصال.';
+            errorBox.classList.remove('hidden');
+          }
+        });
+      }
+    }
+
+    function wirePayForm(s, cur) {
+      const form = document.getElementById('pay-form');
+      const amountEl = document.getElementById('pay-amount');
+      const errEl = document.getElementById('pay-error');
+      const btn = document.getElementById('pay-btn');
+      document.getElementById('pay-full')?.addEventListener('click', () => { amountEl.value = cur.remaining; });
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errEl.classList.add('hidden');
+        const amount = Number(amountEl.value);
+        if (!(amount > 0)) { errEl.textContent = 'أدخل مبلغًا صالحًا.'; errEl.classList.remove('hidden'); return; }
+        btn.disabled = true; btn.textContent = 'جارٍ المعالجة…';
+        try {
+          const res = await createPayment({
+            student_id: s.id,
+            semester_id: cur.semester_id,
+            amount_paid: amount,
+            payment_method: document.getElementById('pay-method').value,
+          });
+          openReceiptModal(res.receipt, currency);
+          await load(); // refresh balances behind the modal
+        } catch (err) {
+          errEl.textContent = err?.message || 'تعذّرت معالجة الدفعة.';
+          errEl.classList.remove('hidden');
+          btn.disabled = false; btn.textContent = 'تسجيل الدفعة وطباعة الإيصال';
+        }
+      });
+    }
+
+    function renderHistory(semesters) {
+      const card = document.getElementById('history-card');
+      if (!semesters.length) { card.classList.add('hidden'); return; }
+      const rows = semesters.map((x) => `
+        <tr>
+          <td>${esc(x.semester_name)}</td>
+          <td>${statusLabel(x.status)}</td>
+          <td class="num">${x.courses_count}</td>
+          <td class="num">${formatMoney(x.total_cost, currency)}</td>
+          <td class="num text-success">${formatMoney(x.total_paid, currency)}</td>
+          <td class="num ${x.remaining > 0 ? 'text-danger' : 'text-success'}">${formatMoney(x.remaining, currency)}</td>
+        </tr>`).join('');
+      card.innerHTML = `
+        <div class="card-pad"><h2 class="card-title">سجلّ الفصول الدراسية</h2></div>
+        <table class="table">
+          <thead><tr><th>الفصل</th><th>الحالة</th><th class="num">المقررات</th><th class="num">التكلفة</th><th class="num">المدفوع</th><th class="num">المتبقّي</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    async function load() {
+      const summary = await getStudentSummary(id);
+      renderHeader(summary.student);
+      renderBalance(summary.current);
+      renderSemester(summary.student, summary.current);
+      renderHistory(summary.semesters);
+      loading.classList.add('hidden');
+      content.classList.remove('hidden');
+    }
+
+    (async () => {
+      if (!id) { fail('لم يُحدَّد طالب. استخدم البحث للوصول إلى حساب طالب.'); return; }
+      try {
+        currency = (await getConfig()).currency;
+        await load();
+        // Opened from start-semester / a reprint link → show the receipt.
+        const rcp = new URLSearchParams(location.search).get('receipt');
+        if (rcp) {
+          try { openReceiptModal(await getReceipt(rcp), currency); } catch { /* ignore */ }
+        }
+      } catch (err) {
+        fail(err?.message || 'تعذّر تحميل بيانات الطالب.');
+      }
+    })();
+  </script>
+
+  <style>
+    /* Only the statically-rendered wrappers are styled here. The card *contents*
+       are injected via innerHTML, so their styles live in global.css (Astro
+       scoped styles don't attach to runtime-injected nodes). */
+    .breadcrumb { display: flex; gap: 8px; align-items: center; font-size: 0.85rem; color: var(--color-muted); margin-block-end: var(--space-4); }
+    .breadcrumb strong { color: var(--color-heading); }
+
+    .student-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4); }
+
+    .acct-grid { display: grid; grid-template-columns: 380px 1fr; gap: var(--space-4); align-items: start; }
+    @media (max-width: 900px) { .acct-grid { grid-template-columns: 1fr; } }
+  </style>
+</PortalLayout>

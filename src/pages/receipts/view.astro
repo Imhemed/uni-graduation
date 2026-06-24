@@ -1,0 +1,52 @@
+---
+import PortalLayout from '../../layouts/PortalLayout.astro';
+import ReceiptView from '../../components/ReceiptView.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<PortalLayout title="إيصال رسمي — المالية الجامعية" active="">
+  <div id="rv-loading" class="row"><span class="spinner"></span><span class="muted">جارٍ تحميل الإيصال…</span></div>
+  <div id="rv-error" class="alert alert-danger hidden" role="alert"></div>
+
+  <div id="rv-wrap" class="hidden receipt-wrap">
+    <div class="no-print rv-actions">
+      <button class="btn btn-primary" id="rv-print" type="button">طباعة الإيصال</button>
+      <a class="btn btn-outline" href={base}>رجوع</a>
+    </div>
+    <ReceiptView />
+  </div>
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { getReceipt } from '../../lib/api/endpoints.js';
+    import { getConfig } from '../../lib/config.js';
+    import { fillReceipt, printReceipt } from '../../lib/receipt.js';
+
+    const id = new URLSearchParams(location.search).get('id');
+    const loading = document.getElementById('rv-loading');
+    const errorBox = document.getElementById('rv-error');
+    const wrap = document.getElementById('rv-wrap');
+
+    document.getElementById('rv-print')?.addEventListener('click', printReceipt);
+
+    (async () => {
+      if (!id) { loading.classList.add('hidden'); errorBox.textContent = 'لم يُحدَّد إيصال.'; errorBox.classList.remove('hidden'); return; }
+      try {
+        const currency = (await getConfig()).currency;
+        const receipt = await getReceipt(id);
+        fillReceipt(wrap, receipt, currency);
+        loading.classList.add('hidden');
+        wrap.classList.remove('hidden');
+      } catch (err) {
+        loading.classList.add('hidden');
+        errorBox.textContent = err?.message || 'تعذّر تحميل الإيصال.';
+        errorBox.classList.remove('hidden');
+      }
+    })();
+  </script>
+
+  <style>
+    .receipt-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+    .rv-actions { display: flex; gap: var(--space-3); }
+  </style>
+</PortalLayout>

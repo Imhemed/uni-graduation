@@ -1,0 +1,135 @@
+---
+---
+
+<header class="topbar no-print">
+  <form class="search" id="search-form" role="search">
+    <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+    <input id="global-search" class="search-input" type="search" autocomplete="off" inputmode="search" placeholder="ابحث برقم الطالب (أو الاسم)…" />
+    <span id="search-msg" class="search-msg hidden" role="alert"></span>
+  </form>
+
+  <div class="topbar-actions">
+    <div class="user">
+      <div class="avatar" id="user-avatar">—</div>
+      <div class="user-meta">
+        <strong id="user-name">—</strong>
+        <span class="muted user-role" id="user-role"></span>
+      </div>
+    </div>
+
+    <button class="btn btn-ghost btn-sm logout" type="button" id="logout-btn">تسجيل الخروج</button>
+  </div>
+</header>
+
+<script>
+  // @ts-nocheck — plain JS (DOM), not type-checked
+  import { searchStudents } from '../lib/api/endpoints.js';
+  import { getCurrentUser, logout } from '../lib/auth.js';
+
+  const base = import.meta.env.BASE_URL;
+  const ROLE_LABELS = { employee: 'موظف', manager: 'مدير', superadmin: 'مدير متميّز' };
+
+  // --- user chip ---
+  const user = getCurrentUser();
+  if (user) {
+    document.getElementById('user-name').textContent = user.full_name || user.username;
+    document.getElementById('user-role').textContent = ROLE_LABELS[user.role] || '';
+    document.getElementById('user-avatar').textContent = (user.full_name || user.username || '?').trim().charAt(0);
+  }
+  document.getElementById('logout-btn')?.addEventListener('click', () => logout());
+
+  // --- direct student lookup (no results dropdown) ---
+  // Submit the box → resolve to ONE student (prefer an exact university-ID match)
+  // and jump straight to their page; otherwise show a short message.
+  const form = document.getElementById('search-form');
+  const input = document.getElementById('global-search');
+  const msg = document.getElementById('search-msg');
+
+  const showMsg = (text) => { msg.textContent = text; msg.classList.remove('hidden'); };
+  const clearMsg = () => { msg.textContent = ''; msg.classList.add('hidden'); };
+
+  input?.addEventListener('input', clearMsg);
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    clearMsg();
+    input.disabled = true;
+    try {
+      const items = await searchStudents({ search: q });
+      // Prefer an exact ID match; otherwise accept a single unambiguous result.
+      let target = items.find((s) => String(s.university_id) === q);
+      if (!target && items.length === 1) target = items[0];
+      if (target) {
+        location.href = `${base}students/account?id=${target.id}`;
+        return;
+      }
+      showMsg(items.length > 1 ? 'عدّة نتائج مطابقة — أدخل رقم الطالب كاملاً.' : 'لا يوجد طالب بهذا المعرّف.');
+    } catch {
+      showMsg('تعذّر تنفيذ البحث.');
+    } finally {
+      input.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--color-surface);
+    border-block-end: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding-inline: var(--space-5);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .search { position: relative; flex: 1; max-width: 480px; margin: 0; }
+  .search-icon { position: absolute; inset-inline-start: 12px; top: 50%; transform: translateY(-50%); color: var(--color-faint); pointer-events: none; }
+  .search-input {
+    width: 100%;
+    padding: 9px 38px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface-2);
+    font: inherit;
+    font-size: 0.9rem;
+  }
+  .search-input:focus { outline: none; border-color: var(--color-accent); background: var(--color-surface); }
+  .search-input:disabled { opacity: 0.6; }
+  .search-msg {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + 6px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-danger-bg);
+    color: var(--color-danger-text);
+    font-size: 0.82rem;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    z-index: 30;
+  }
+
+  .topbar-actions { display: flex; align-items: center; gap: var(--space-3); margin-inline-start: auto; }
+  .user { display: flex; align-items: center; gap: var(--space-2); }
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+    display: grid; place-items: center;
+    font-weight: 700;
+  }
+  .user-meta { display: flex; flex-direction: column; line-height: 1.2; }
+  .user-meta strong { font-size: 0.88rem; color: var(--color-heading); }
+  .user-role { font-size: 0.75rem; }
+
+  @media (max-width: 720px) {
+    .user-meta { display: none; }
+    .search { max-width: none; }
+  }
+</style>

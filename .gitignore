@@ -22,3 +22,8 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# project planning / reference docs (not part of the app)
+DRD.md
+PLAN.md
+project_specification_and_status_report.md

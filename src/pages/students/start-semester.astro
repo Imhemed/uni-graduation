@@ -1,0 +1,207 @@
+---
+import PortalLayout from '../../layouts/PortalLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<PortalLayout title="بدء فصل دراسي جديد — المالية الجامعية" active="students">
+  <nav class="breadcrumb"><a href={base}>لوحة التحكم</a> <span>›</span> <a id="bc-student" href="#">الطالب</a> <span>›</span> <strong>فصل جديد</strong></nav>
+
+  <div id="ss-loading" class="row"><span class="spinner"></span><span class="muted">جارٍ التحميل…</span></div>
+  <div id="ss-error" class="alert alert-danger hidden" role="alert"></div>
+
+  <div id="ss-content" class="hidden stack">
+    <header class="card card-pad student-header" id="student-header"></header>
+
+    <div id="debt-block" class="alert alert-danger hidden"></div>
+
+    <div class="ss-grid">
+      <section class="card card-pad">
+        <h2 class="card-title">بدء فصل دراسي جديد</h2>
+        <div class="grid-2" style="margin-block-start:16px">
+          <div class="field">
+            <label class="field-label" for="semester">الفصل الدراسي</label>
+            <select class="input" id="semester"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="courses">عدد المقررات</label>
+            <input class="input" id="courses" type="number" min="1" step="1" value="6" />
+          </div>
+        </div>
+
+        <h3 class="section-h">معالجة الدفعة الأولى</h3>
+        <div class="grid-2">
+          <div class="field">
+            <label class="field-label" for="amount">المبلغ المراد دفعه</label>
+            <div class="amount-row">
+              <input class="input" id="amount" type="number" min="0" step="0.01" value="0" />
+              <button class="btn btn-outline btn-sm" type="button" id="amount-full">كامل</button>
+            </div>
+            <span class="field-hint">اتركه صفرًا للتسجيل دون دفعة الآن.</span>
+          </div>
+          <div class="field">
+            <label class="field-label" for="method">طريقة الدفع</label>
+            <select class="input" id="method">
+              <option value="نقدًا">نقدًا</option>
+              <option value="بطاقة">بطاقة ائتمان/خصم</option>
+              <option value="تحويل بنكي">تحويل بنكي</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="pay-error" class="alert alert-danger hidden"></div>
+        <button class="btn btn-primary btn-block" id="confirm-btn" type="button" style="margin-block-start:8px">تأكيد وطباعة الإيصال</button>
+        <p class="muted small" style="margin-block-start:8px">سيؤدي هذا الإجراء إلى تسجيل المعاملة وإنشاء فاتورة قابلة للطباعة.</p>
+      </section>
+
+      <aside class="card card-pad cost-box">
+        <h2 class="card-title">التفصيل المالي</h2>
+        <div class="cost-rows">
+          <div class="between"><div><div>رسوم المقررات</div><div class="muted small" id="courses-detail"></div></div><strong id="courses-total">—</strong></div>
+          <div class="between"><div><div>رسوم الفصل الأساسية</div><div class="muted small">رسوم إدارية قياسية</div></div><strong id="base-fee">—</strong></div>
+        </div>
+        <div class="cost-total">
+          <span>إجمالي تكلفة الفصل</span>
+          <strong id="grand-total">—</strong>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { getStudent, getStudentSummary, listMajors, listSemesters, enrollStudent, createPayment } from '../../lib/api/endpoints.js';
+    import { getConfig } from '../../lib/config.js';
+    import { formatMoney } from '../../lib/format.js';
+
+    const base = import.meta.env.BASE_URL;
+    const id = new URLSearchParams(location.search).get('id');
+
+    const loading = document.getElementById('ss-loading');
+    const errorBox = document.getElementById('ss-error');
+    const content = document.getElementById('ss-content');
+    let currency = 'LYD';
+    let price = 0, baseFee = 0, student = null;
+
+    const $ = (x) => document.getElementById(x);
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const fail = (m) => { loading.classList.add('hidden'); errorBox.textContent = m; errorBox.classList.remove('hidden'); };
+
+    function recalc() {
+      const courses = Math.max(0, parseInt($('courses').value || '0', 10));
+      const coursesTotal = courses * price;
+      const total = coursesTotal + baseFee;
+      $('courses-detail').textContent = `${formatMoney(price, currency)} × ${courses} مقررات`;
+      $('courses-total').textContent = formatMoney(coursesTotal, currency);
+      $('base-fee').textContent = formatMoney(baseFee, currency);
+      $('grand-total').textContent = formatMoney(total, currency);
+      return total;
+    }
+
+    async function init() {
+      if (!id) { fail('لم يُحدَّد طالب.'); return; }
+      currency = (await getConfig()).currency;
+      const [stu, majors, semesters, summary] = await Promise.all([
+        getStudent(id), listMajors(), listSemesters(), getStudentSummary(id),
+      ]);
+      student = stu;
+      const major = majors.find((m) => String(m.id) === String(stu.major_id));
+      price = major?.price_per_course || 0;
+      baseFee = major?.semester_base_fee || 0;
+
+      // header
+      $('student-header').innerHTML = `
+        <div class="sh-main">
+          <div class="sh-avatar">${esc((stu.full_name || '?').charAt(0))}</div>
+          <div>
+            <h1 class="sh-name">${esc(stu.full_name)}</h1>
+            <div class="sh-meta"><span>المعرّف: <strong>${esc(stu.university_id)}</strong></span><span>التخصص: <strong>${esc(stu.major_name) || '—'}</strong></span></div>
+          </div>
+        </div>`;
+      $('bc-student').textContent = stu.full_name;
+      $('bc-student').href = `${base}students/account?id=${stu.id}`;
+
+      // semesters: exclude ones already enrolled
+      const enrolled = new Set(summary.semesters.map((x) => String(x.semester_id)));
+      const sel = $('semester');
+      const available = semesters.filter((s) => !enrolled.has(String(s.id)));
+      if (!available.length) {
+        sel.innerHTML = '<option value="">لا توجد فصول متاحة</option>';
+      } else {
+        sel.innerHTML = available.map((s) => `<option value="${s.id}" ${s.is_active ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+      }
+
+      // pre-warn if there's outstanding debt (enroll will block it server-side too)
+      if (summary.totals.balance > 0) {
+        const d = $('debt-block');
+        d.innerHTML = `تنبيه: يوجد رصيد غير مسدّد بقيمة <strong>${formatMoney(summary.totals.balance, currency)}</strong> على فصول سابقة. يجب سداده قبل بدء فصل جديد.`;
+        d.classList.remove('hidden');
+      }
+
+      recalc();
+      loading.classList.add('hidden');
+      content.classList.remove('hidden');
+    }
+
+    $('courses').addEventListener('input', recalc);
+    $('amount-full').addEventListener('click', () => { $('amount').value = recalc(); });
+
+    $('confirm-btn').addEventListener('click', async () => {
+      const errEl = $('pay-error');
+      errEl.classList.add('hidden');
+      const semester_id = $('semester').value;
+      const courses_count = parseInt($('courses').value || '0', 10);
+      const amount = Number($('amount').value || 0);
+      if (!semester_id) { errEl.textContent = 'اختر الفصل الدراسي.'; errEl.classList.remove('hidden'); return; }
+      if (!(courses_count > 0)) { errEl.textContent = 'عدد المقررات يجب أن يكون أكبر من صفر.'; errEl.classList.remove('hidden'); return; }
+
+      const btn = $('confirm-btn');
+      btn.disabled = true; btn.textContent = 'جارٍ المعالجة…';
+      try {
+        await enrollStudent({ student_id: student.id, semester_id, courses_count });
+        let receiptId = '';
+        if (amount > 0) {
+          const payRes = await createPayment({ student_id: student.id, semester_id, amount_paid: amount, payment_method: $('method').value });
+          receiptId = payRes.receipt.receipt_id;
+        }
+        const q = receiptId ? `&receipt=${receiptId}` : '';
+        location.href = `${base}students/account?id=${student.id}${q}`;
+      } catch (err) {
+        // debt rejection carries a structured list
+        if (err?.data?.unpaid?.length) {
+          const lines = err.data.unpaid.map((u) => `• ${esc(u.semester_name)}: ${formatMoney(u.remaining, currency)}`).join('<br>');
+          errEl.innerHTML = `${err.message}<br>${lines}`;
+        } else {
+          errEl.textContent = err?.message || 'تعذّر إتمام العملية.';
+        }
+        errEl.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = 'تأكيد وطباعة الإيصال';
+      }
+    });
+
+    init().catch((err) => fail(err?.message || 'تعذّر تحميل الصفحة.'));
+  </script>
+
+  <style>
+    .breadcrumb { display: flex; gap: 8px; align-items: center; font-size: 0.85rem; color: var(--color-muted); margin-block-end: var(--space-4); }
+    .breadcrumb strong { color: var(--color-heading); }
+    .small { font-size: 0.8rem; }
+    .student-header { display: flex; align-items: center; gap: var(--space-4); }
+    .sh-main { display: flex; align-items: center; gap: var(--space-4); }
+    .sh-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--color-info-bg); color: var(--color-info-text); display: grid; place-items: center; font-size: 1.4rem; font-weight: 800; }
+    .sh-name { font-size: 1.4rem; }
+    .sh-meta { display: flex; flex-wrap: wrap; gap: var(--space-4); color: var(--color-muted); font-size: 0.88rem; margin-block-start: 4px; }
+
+    .ss-grid { display: grid; grid-template-columns: 1fr 340px; gap: var(--space-4); align-items: start; }
+    @media (max-width: 900px) { .ss-grid { grid-template-columns: 1fr; } }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    @media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } }
+    .section-h { font-size: 1rem; padding-block: 10px 6px; border-block-end: 1px solid var(--color-border); margin-block: var(--space-4) var(--space-3); }
+    .amount-row { display: flex; gap: 8px; }
+    .amount-row .input { flex: 1; }
+
+    .cost-box { position: sticky; top: calc(var(--topbar-h) + var(--space-4)); }
+    .cost-rows { display: flex; flex-direction: column; gap: 14px; padding-block: 16px; border-block-end: 1px solid var(--color-border); margin-block-start: 12px; }
+    .cost-total { display: flex; align-items: center; justify-content: space-between; padding-block-start: 16px; }
+    .cost-total strong { font-size: 1.5rem; }
+  </style>
+</PortalLayout>

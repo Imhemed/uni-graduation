@@ -1,11 +1,116 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import PortalLayout from '../layouts/PortalLayout.astro';
+const base = import.meta.env.BASE_URL;
 ---
 
-<Layout>
-	<Welcome />
-</Layout>
+<PortalLayout title="لوحة التحكم — المالية الجامعية" active="dashboard">
+  <div class="dash-head">
+    <h1 class="page-title">نظرة عامة</h1>
+    <p class="page-subtitle">حدّد إجراءً لبدء معالجة العمليات المالية.</p>
+  </div>
+
+  <div class="cards">
+    <a class="action-card" href={`${base}students/new`}>
+      <span class="card-ic ic-navy">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z" /><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5" /></svg>
+      </span>
+      <h3>تسجيل طالب جديد</h3>
+      <p class="muted">إنشاء الملف المالي الأولي وهيكل الرسوم.</p>
+    </a>
+
+    <a class="action-card" href={`${base}students`}>
+      <span class="card-ic ic-blue">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2" /><path d="M2 10h20" /><path d="M16 14h2" /></svg>
+      </span>
+      <h3>إدارة الطلاب والمدفوعات</h3>
+      <p class="muted">البحث، بدء فصل دراسي، أو معالجة دفعة.</p>
+    </a>
+
+    <a class="action-card" href={`${base}reports`}>
+      <span class="card-ic ic-brown">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+      </span>
+      <h3>إنشاء التقارير</h3>
+      <p class="muted">تصدير الدفاتر والتسويات والملخصات.</p>
+    </a>
+
+    <a class="action-card" href={`${base}admin`} data-role-min="manager">
+      <span class="card-ic ic-gray">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+      </span>
+      <h3>الإدارة <span class="badge badge-muted role-chip">مدير</span></h3>
+      <p class="muted">إعدادات النظام وإدارة الموظفين والتخصصات.</p>
+    </a>
+  </div>
+
+  <section class="summary">
+    <h2 class="card-title">ملخص سريع</h2>
+    <div class="card card-pad summary-body" id="summary-body">
+      <div class="row"><span class="spinner"></span><span class="muted">جارٍ تحميل ملخص اليوم…</span></div>
+    </div>
+  </section>
+
+  <script>
+    import { getReport } from '../lib/api/endpoints.js';
+    import { getConfig } from '../lib/config.js';
+    import { formatMoney } from '../lib/format.js';
+
+    (async () => {
+      const body = document.getElementById('summary-body');
+      try {
+        const [report, cfg] = await Promise.all([getReport('daily'), getConfig()]);
+        body.innerHTML = `
+          <div class="stats">
+            <div class="stat">
+              <span class="muted">محصّل اليوم</span>
+              <strong class="stat-num text-success">${formatMoney(report.total, cfg.currency)}</strong>
+            </div>
+            <div class="stat">
+              <span class="muted">عدد المعاملات</span>
+              <strong class="stat-num">${report.count}</strong>
+            </div>
+          </div>`;
+      } catch {
+        body.innerHTML = '<p class="muted">تعذّر تحميل الملخص حاليًا.</p>';
+      }
+    })();
+  </script>
+
+  <style>
+    .dash-head { margin-block-end: var(--space-5); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--space-4);
+    }
+    .action-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      text-align: start;
+      padding: var(--space-5);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+    }
+    .action-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); border-color: var(--color-border-strong); text-decoration: none; }
+    .action-card h3 { font-size: 1.05rem; display: flex; align-items: center; gap: var(--space-2); }
+    .action-card p { font-size: 0.88rem; }
+    .card-ic { width: 46px; height: 46px; display: grid; place-items: center; border-radius: var(--radius-md); }
+    .ic-navy { background: var(--color-primary); color: #fff; }
+    .ic-blue { background: var(--color-info-bg); color: var(--color-info-text); }
+    .ic-brown { background: #f3e8df; color: #8a4b22; }
+    .ic-gray { background: #eef0f3; color: var(--color-muted); }
+    .role-chip { font-size: 0.68rem; }
+
+    .summary { margin-block-start: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+    .stats { display: flex; gap: var(--space-8); flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; gap: 4px; }
+    .stat-num { font-size: 1.6rem; }
+  </style>
+</PortalLayout>

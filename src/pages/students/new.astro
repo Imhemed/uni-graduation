@@ -1,0 +1,144 @@
+---
+import PortalLayout from '../../layouts/PortalLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<PortalLayout title="تسجيل طالب جديد — المالية الجامعية" active="register">
+  <a class="back-link" href={base}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l-7 7 7 7" /></svg>
+    العودة إلى لوحة التحكم
+  </a>
+
+  <div class="head">
+    <h1 class="page-title">تسجيل طالب جديد</h1>
+    <p class="page-subtitle">إنشاء سجلّ مالي جديد للطالب في النظام.</p>
+  </div>
+
+  <div class="card card-pad form-card">
+    <div id="form-error" class="alert alert-danger hidden" role="alert"></div>
+
+    <div class="auto-id">
+      <span class="rcp-label muted">معرّف النظام التلقائي</span>
+      <strong>STU-[ يُنشأ تلقائيًا ]</strong>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+    </div>
+
+    <form id="student-form" class="stack" novalidate>
+      <h3 class="section-h">المعلومات الشخصية</h3>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label" for="full_name">الاسم الكامل <span class="req">*</span></label>
+          <input class="input" id="full_name" name="full_name" placeholder="مثال: أحمد علي" required />
+        </div>
+        <div class="field">
+          <label class="field-label" for="major_id">التخصص <span class="req">*</span></label>
+          <select class="input" id="major_id" name="major_id" required>
+            <option value="">اختر التخصص…</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 class="section-h">معلومات الاتصال</h3>
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label" for="email">البريد الإلكتروني <span class="muted">(اختياري)</span></label>
+          <input class="input" id="email" name="email" type="email" placeholder="student@university.edu" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="phone">رقم الهاتف <span class="muted">(اختياري)</span></label>
+          <input class="input" id="phone" name="phone" placeholder="0910000000" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="address">عنوان المنزل <span class="muted">(اختياري)</span></label>
+        <textarea class="input" id="address" name="address" placeholder="المدينة، الشارع"></textarea>
+      </div>
+
+      <hr class="divider" />
+      <div class="actions">
+        <button class="btn btn-primary" type="submit" id="save-btn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></svg>
+          حفظ طالب جديد
+        </button>
+        <a class="btn btn-outline" href={base}>إلغاء</a>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { listMajors, createStudent } from '../../lib/api/endpoints.js';
+
+    const base = import.meta.env.BASE_URL;
+    const form = document.getElementById('student-form');
+    const errorBox = document.getElementById('form-error');
+    const saveBtn = document.getElementById('save-btn');
+
+    // populate majors
+    (async () => {
+      try {
+        const majors = await listMajors();
+        const sel = document.getElementById('major_id');
+        for (const m of majors) {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.name;
+          sel.appendChild(opt);
+        }
+      } catch {
+        errorBox.textContent = 'تعذّر تحميل قائمة التخصصات.';
+        errorBox.classList.remove('hidden');
+      }
+    })();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.classList.add('hidden');
+      const body = {
+        full_name: form.full_name.value.trim(),
+        major_id: form.major_id.value,
+        email: form.email.value.trim() || null,
+        phone: form.phone.value.trim() || null,
+        address: form.address.value.trim() || null,
+      };
+      if (!body.full_name) { showError('الاسم الكامل مطلوب.'); return; }
+      if (!body.major_id) { showError('يجب اختيار التخصص.'); return; }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'جارٍ الحفظ…';
+      try {
+        const student = await createStudent(body);
+        location.href = `${base}students/account?id=${student.id}`;
+      } catch (err) {
+        showError(err?.message || 'تعذّر حفظ الطالب.');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'حفظ طالب جديد';
+      }
+    });
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+  </script>
+
+  <style>
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; color: var(--color-muted); margin-block-end: var(--space-4); }
+    .head { margin-block-end: var(--space-5); }
+    .form-card { max-width: 760px; }
+    .auto-id {
+      display: flex; align-items: center; gap: var(--space-3);
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-block-end: var(--space-5);
+    }
+    .auto-id strong { color: var(--color-muted); font-family: monospace; }
+    .auto-id svg { color: var(--color-faint); margin-inline-start: auto; }
+    .section-h { font-size: 1rem; padding-block-end: 6px; border-block-end: 1px solid var(--color-border); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .actions { display: flex; gap: var(--space-3); }
+    @media (max-width: 620px) { .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</PortalLayout>

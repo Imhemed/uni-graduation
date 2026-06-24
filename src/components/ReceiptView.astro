@@ -1,0 +1,86 @@
+---
+// Printable official receipt. Populated at runtime by lib/receipt.js (fillReceipt)
+// via [data-rcp] hooks. Reused by ReceiptModal and /receipts/view.
+---
+
+<article class="receipt">
+  <header class="rcp-head">
+    <span class="rcp-logo">
+      <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z" /><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5" /></svg>
+    </span>
+    <h2>مكتب مالية الجامعة</h2>
+    <p class="rcp-addr">123 الطريق الأكاديمي، مدينة المنح الدراسية، 90210<br />هاتف: 3456-012 (555) | ويب: finance.university.edu</p>
+  </header>
+
+  <hr class="rcp-rule" />
+
+  <div class="rcp-meta">
+    <div class="rcp-title">إيصال رسمي</div>
+    <div class="rcp-meta-grid">
+      <div><span class="rcp-label">رقم الإيصال</span><strong data-rcp="no">—</strong></div>
+      <div><span class="rcp-label">التاريخ</span><strong data-rcp="datetime">—</strong></div>
+    </div>
+  </div>
+
+  <div class="rcp-student">
+    <div><span class="rcp-label">اسم الطالب</span><strong data-rcp="student_name">—</strong></div>
+    <div><span class="rcp-label">رقم الطالب</span><strong data-rcp="university_id">—</strong></div>
+    <div><span class="rcp-label">الفصل الدراسي</span><strong data-rcp="semester">—</strong></div>
+    <div><span class="rcp-label">التخصص / البرنامج</span><strong data-rcp="major">—</strong></div>
+  </div>
+
+  <table class="rcp-table">
+    <thead>
+      <tr><th>الوصف</th><th class="num">المبلغ</th></tr>
+    </thead>
+    <tbody>
+      <tr><td data-rcp="desc">—</td><td class="num" data-rcp="amount">—</td></tr>
+    </tbody>
+    <tfoot>
+      <tr><td class="rcp-total-label">إجمالي المدفوع</td><td class="num" data-rcp="total">—</td></tr>
+    </tfoot>
+  </table>
+
+  <div class="rcp-foot">
+    <div class="rcp-foot-row"><span class="rcp-label">طريقة الدفع</span><strong data-rcp="method">—</strong></div>
+    <div class="rcp-foot-row"><span class="rcp-label">تمت المعالجة بواسطة</span><strong data-rcp="employee">—</strong></div>
+  </div>
+
+  <div class="rcp-stamp hidden" data-rcp="stamp"></div>
+
+  <p class="rcp-thanks">شكرًا لك. يُرجى الاحتفاظ بهذا الإيصال كإثبات للدفع.</p>
+</article>
+
+<style>
+  .receipt {
+    background: #fff;
+    color: #111827;
+    width: 100%;
+    max-width: 560px;
+    padding: 28px 32px;
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+  }
+  .rcp-head { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .rcp-logo { color: #0f172a; }
+  .rcp-head h2 { font-size: 1.35rem; }
+  .rcp-addr { font-size: 0.74rem; color: #6b7280; line-height: 1.7; }
+  .rcp-rule { border: 0; border-block-start: 1px solid var(--color-border); margin: 18px 0; }
+  .rcp-title { font-size: 1.05rem; font-weight: 800; margin-block-end: 10px; }
+  .rcp-meta-grid, .rcp-student { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  .rcp-student { background: #f8fafc; border-radius: var(--radius-sm); padding: 14px 16px; margin: 16px 0; }
+  .rcp-label { display: block; font-size: 0.72rem; color: #6b7280; margin-block-end: 2px; }
+  .rcp-meta-grid strong, .rcp-student strong { font-size: 0.95rem; }
+  .rcp-table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
+  .rcp-table th, .rcp-table td { padding: 10px 4px; text-align: start; border-block-end: 1px solid var(--color-border); font-size: 0.9rem; }
+  .rcp-table .num { text-align: end; font-variant-numeric: tabular-nums; }
+  .rcp-table tfoot td { border-block-end: none; font-weight: 800; padding-block-start: 14px; }
+  .rcp-total-label { font-size: 0.98rem; }
+  .rcp-foot { display: flex; flex-direction: column; gap: 8px; margin-block-end: 16px; }
+  .rcp-foot-row { display: flex; justify-content: space-between; gap: 12px; }
+  .rcp-foot-row .rcp-label { display: inline; margin: 0; }
+  .rcp-stamp { text-align: center; font-weight: 800; padding: 10px; border-radius: var(--radius-sm); }
+  .rcp-stamp.paid { background: var(--color-success-bg); color: var(--color-success-text); }
+  .rcp-stamp.due { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .rcp-thanks { text-align: center; font-size: 0.74rem; color: #9ca3af; margin-block-start: 16px; }
+</style>

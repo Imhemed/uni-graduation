@@ -1,0 +1,66 @@
+/* Design tokens derived from the project screenshots (navy + light-gray finance UI). */
+:root {
+  --font-sans: 'Cairo Variable', system-ui, 'Segoe UI', Tahoma, Arial, sans-serif;
+
+  /* surfaces */
+  --color-bg: #f3f4f6;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-sidebar: #eef0f3;
+  --color-sidebar-hover: #e3e7ec;
+
+  /* text */
+  --color-text: #1f2937;
+  --color-heading: #0f172a;
+  --color-muted: #6b7280;
+  --color-faint: #9ca3af;
+
+  /* lines */
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  /* brand / actions */
+  --color-primary: #0f172a;
+  --color-primary-hover: #1e293b;
+  --color-primary-contrast: #ffffff;
+  --color-accent: #3f5b78;
+  --color-accent-hover: #344c66;
+
+  /* status */
+  --color-success: #16a34a;
+  --color-success-hover: #15803d;
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #b91c1c;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1e40af;
+
+  /* radii */
+  --radius: 14px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+
+  /* shadows */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 34px rgba(15, 23, 42, 0.14);
+
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  /* layout */
+  --topbar-h: 64px;
+  --sidebar-w: 264px;
+  --content-max: 1100px;
+}

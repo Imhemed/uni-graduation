@@ -1,0 +1,100 @@
+---
+import AuthLayout from '../layouts/AuthLayout.astro';
+---
+
+<AuthLayout title="تسجيل الدخول">
+  <div class="login-card card card-pad">
+    <div class="login-head">
+      <h1>تسجيل الدخول</h1>
+      <p class="muted">الوصول إلى البوابة الإدارية</p>
+    </div>
+
+    <form id="login-form" class="stack" novalidate>
+      <div id="login-error" class="alert alert-danger hidden" role="alert"></div>
+
+      <div class="field">
+        <label class="field-label" for="username"> اسم المستخدم</label>
+        <input class="input" id="username" name="username" autocomplete="username" placeholder="أدخل اسم المستخدم الخاص بك" required />
+      </div>
+
+      <div class="field">
+        <div class="between">
+          <label class="field-label" for="password">كلمة المرور</label>
+          <a class="field-hint" href="#">هل نسيت كلمة المرور؟</a>
+        </div>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+      </div>
+
+      <label class="row remember">
+        <input type="checkbox" id="remember" />
+        <span>تذكّر جهازي لمدة 30 يومًا</span>
+      </label>
+
+      <button class="btn btn-primary btn-block" type="submit" id="login-btn">تسجيل الدخول</button>
+    </form>
+
+    <hr class="divider" />
+    <p class="muted login-help">هل تحتاج إلى مساعدة؟ اتصل بدعم تكنولوجيا المعلومات</p>
+    <p class="faint demo-hint">للتجربة: <code>root_admin</code> · <code>sjenkins_fin</code> · <code>msalem</code> — وأي كلمة مرور.</p>
+  </div>
+
+  <script>
+    // @ts-nocheck — plain JS (DOM), not type-checked
+    import { login } from '../lib/api/endpoints.js';
+    import { setSession, isAuthenticated } from '../lib/auth.js';
+
+    const home = import.meta.env.BASE_URL;
+    if (isAuthenticated()) location.replace(home);
+
+    const form = document.getElementById('login-form');
+    const errorBox = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.classList.add('hidden');
+      const username = form.username.value.trim();
+      const password = form.password.value;
+      btn.disabled = true;
+      btn.textContent = 'جارٍ الدخول…';
+      try {
+        const res = await login(username, password);
+        setSession(res.access_token, res.employee);
+        location.replace(home);
+      } catch (err) {
+        errorBox.textContent = err?.message || 'تعذّر تسجيل الدخول.';
+        errorBox.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'تسجيل الدخول';
+      }
+    });
+  </script>
+
+  <style>
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      box-shadow: var(--shadow-lg);
+    }
+    .login-head {
+      text-align: center;
+      margin-block-end: var(--space-5);
+    }
+    .login-head h1 { font-size: 1.5rem; }
+    .remember {
+      gap: var(--space-2);
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      cursor: pointer;
+    }
+    .login-help { text-align: center; font-size: 0.85rem; }
+    .demo-hint { text-align: center; font-size: 0.78rem; margin-block-start: var(--space-2); }
+    .demo-hint code {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.74rem;
+    }
+  </style>
+</AuthLayout>
