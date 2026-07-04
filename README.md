@@ -2,7 +2,7 @@
 
 نظام المالية الجامعية — واجهة المستخدم
 
-A staff-facing web application for **university tuition billing and cash collection**, designed to run **offline over a university LAN** (with a possible later move online). This repository contains the **frontend** (Astro + vanilla JavaScript). The backend (FastAPI) is developed separately.
+A staff-facing web application for **university tuition billing and cash collection**, deployable as a **public web app** (Docker + HTTPS) or over a **university LAN**. This repository contains the **frontend** (Astro + vanilla JavaScript); the backend (FastAPI + PostgreSQL) lives in the `StudentManagementSystem` repo.
 
 > Graduation project, 2-developer team: this repo = frontend; a teammate builds the FastAPI backend. The two communicate through a documented API contract that the frontend mocks today and swaps to the live server with a single config change.
 
@@ -127,14 +127,25 @@ Because this file lives outside the build, the **same `dist/` build** can be dep
 
 ---
 
-## 📦 Deployment (offline LAN)
+## 📦 Deployment
+
+**Full app (recommended)** — the frontend, backend, and PostgreSQL run together
+with Docker Compose from the parent project folder. The frontend is built and
+served by nginx (which also proxies `/api`), and `config.json` is generated with
+`useMock:false` automatically. See **`../PRODUCTION.md`** (VPS + domain + HTTPS)
+or **`../DOCKER.md`** (local / LAN).
+
+**Standalone static build** — build and serve `dist/` with any static server:
 
 ```sh
-npm run build
-npx serve -s dist -l 3000      # serve the static build
+PUBLIC_BASE_PATH=/ npm run build     # base '/' for root hosting
+npx serve -s dist -l 3000
 ```
 
-Then edit `dist/config.json` on the host to set `apiBaseUrl` to the LAN server's IP and `useMock` to `false`.
+`base` is env-driven in `astro.config.mjs`: default `/uni-graduation` (GitHub
+Pages), or set `PUBLIC_BASE_PATH=/` for root hosting. Then edit `dist/config.json`
+to point `apiBaseUrl` at the backend and set `useMock:false` — editable after the
+build, no rebuild needed.
 
 ---
 

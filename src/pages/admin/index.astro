@@ -261,7 +261,7 @@ const base = import.meta.env.BASE_URL;
               </div>
               ${fieldText('رقم الهاتف', 'phone', e?.phone || '', { required: false })}
             </div>
-            ${e ? '' : '<span class="field-hint">سيتم استخدام كلمة مرور افتراضية يمكن تغييرها لاحقًا.</span>'}`;
+            ${e ? '' : fieldText('كلمة المرور', 'password', '', { type: 'password', placeholder: '4 أحرف على الأقل', required: true })}`;
         },
         password: (e) => `
           <p class="muted">تعيين كلمة مرور جديدة للموظف <strong>${esc(e?.full_name || '')}</strong>.</p>
@@ -314,7 +314,10 @@ const base = import.meta.env.BASE_URL;
         }
         // staff
         const body = { full_name: f.full_name.value.trim(), role: f.role.value, phone: f.phone.value.trim() || null };
-        if (!ctx.id) body.username = f.username.value.trim();
+        if (!ctx.id) {
+          body.username = f.username.value.trim();
+          body.password = f.password.value;
+        }
         return body;
       }
 
@@ -337,6 +340,9 @@ const base = import.meta.env.BASE_URL;
             toast('تم تحديث كلمة المرور.');
           } else {
             const body = collect(entity);
+            if (entity === 'staff' && !id && (body.password || '').length < 4) {
+              throw { message: 'كلمة المرور يجب ألا تقل عن 4 أحرف.' };
+            }
             if (id) await UPDATE[entity](id, body);
             else await CREATE[entity](body);
             closeModal();
