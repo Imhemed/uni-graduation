@@ -88,7 +88,7 @@ const base = import.meta.env.BASE_URL;
         listCard.classList.remove('hidden');
       } catch (err) {
         listCard.classList.add('hidden');
-        stateEl.innerHTML = `<span class="text-danger">${err?.message || 'تعذّر تحميل القائمة.'}</span>`;
+        stateEl.innerHTML = `<span class="text-danger">${esc(err?.message || 'تعذّر تحميل القائمة.')}</span>`;
       }
     }
 

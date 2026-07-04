@@ -102,7 +102,7 @@ import PortalLayout from '../layouts/PortalLayout.astro';
     import { formatMoney, formatDate, formatDateTime } from '../lib/format.js';
     import { getReport } from '../lib/api/endpoints.js';
 
-    if (requireAuth()) {
+    if (requireAuth('manager')) {
       let currency = 'LYD';
       let lastReport = null; // keep the latest report for CSV export
 

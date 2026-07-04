@@ -6,6 +6,7 @@ import { call } from './client.js';
 
 // ----- auth -----
 export const login = (username, password) => call('POST', '/auth/login', { body: { username, password } });
+export const logout = () => call('POST', '/auth/logout');
 
 // ----- students -----
 export const searchStudents = (query = {}) => call('GET', '/students', { params: query });

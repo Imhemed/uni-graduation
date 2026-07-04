@@ -1,8 +1,9 @@
-// Client-side session handling. The JWT + current user live in localStorage
-// (DRD §7). NOTE: route guards here are for UX/navigation only — the backend
-// must enforce real auth and roles on every request.
+// Client-side session handling. Tokens now live in HttpOnly cookies set by the
+// backend (unreadable by JS → no XSS token theft); only the NON-sensitive current
+// user is cached in localStorage so the UI can render/guard without a round-trip.
+// NOTE: route guards here are for UX/navigation only — the backend enforces real
+// auth and roles on every request.
 
-const TOKEN_KEY = 'hefs_token';
 const USER_KEY = 'hefs_user';
 
 // Higher number = more privilege.
@@ -13,13 +14,8 @@ function withBase(path) {
   return `${base}/${path}`.replace(/\/{2,}/g, '/');
 }
 
-export function setSession(token, user) {
-  localStorage.setItem(TOKEN_KEY, token);
+export function setSession(user) {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-}
-
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
 }
 
 export function getCurrentUser() {
@@ -30,8 +26,10 @@ export function getCurrentUser() {
   }
 }
 
+// The access/refresh tokens are HttpOnly, so the presence of a cached user is our
+// best client-side signal of a session. The backend is the real gate.
 export function isAuthenticated() {
-  return Boolean(getToken());
+  return Boolean(getCurrentUser());
 }
 
 export function hasRole(minRole) {
@@ -40,8 +38,15 @@ export function hasRole(minRole) {
   return (ROLE_RANK[user.role] || 0) >= (ROLE_RANK[minRole] || 0);
 }
 
-export function logout(redirect = true) {
-  localStorage.removeItem(TOKEN_KEY);
+export async function logout(redirect = true) {
+  try {
+    // Best-effort server-side revocation (revokes the refresh token, clears the
+    // auth cookies). Ignore network/HTTP errors — we clear locally regardless.
+    const { logout: apiLogout } = await import('./api/endpoints.js');
+    await apiLogout();
+  } catch {
+    /* ignore — local cleanup below still runs */
+  }
   localStorage.removeItem(USER_KEY);
   if (redirect) location.href = withBase('login');
 }

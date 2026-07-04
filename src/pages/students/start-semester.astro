@@ -169,7 +169,7 @@ const base = import.meta.env.BASE_URL;
         // debt rejection carries a structured list
         if (err?.data?.unpaid?.length) {
           const lines = err.data.unpaid.map((u) => `• ${esc(u.semester_name)}: ${formatMoney(u.remaining, currency)}`).join('<br>');
-          errEl.innerHTML = `${err.message}<br>${lines}`;
+          errEl.innerHTML = `${esc(err.message)}<br>${lines}`;
         } else {
           errEl.textContent = err?.message || 'تعذّر إتمام العملية.';
         }

@@ -58,7 +58,7 @@ import AuthLayout from '../layouts/AuthLayout.astro';
       btn.textContent = 'جارٍ الدخول…';
       try {
         const res = await login(username, password);
-        setSession(res.access_token, res.employee);
+        setSession(res.employee);
         location.replace(home);
       } catch (err) {
         errorBox.textContent = err?.message || 'تعذّر تسجيل الدخول.';
