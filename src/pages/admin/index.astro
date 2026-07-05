@@ -119,7 +119,7 @@ const base = import.meta.env.BASE_URL;
       const ROLE_LABEL = { employee: 'موظف', manager: 'مدير', superadmin: 'مسؤول النظام' };
 
       const $ = (s) => document.querySelector(s);
-      const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
       // ---------- tabs ----------
       document.querySelectorAll('.tab').forEach((btn) => {
@@ -261,11 +261,11 @@ const base = import.meta.env.BASE_URL;
               </div>
               ${fieldText('رقم الهاتف', 'phone', e?.phone || '', { required: false })}
             </div>
-            ${e ? '' : fieldText('كلمة المرور', 'password', '', { type: 'password', placeholder: '4 أحرف على الأقل', required: true })}`;
+            ${e ? '' : fieldText('كلمة المرور', 'password', '', { type: 'password', placeholder: '8 أحرف على الأقل', required: true })}`;
         },
         password: (e) => `
           <p class="muted">تعيين كلمة مرور جديدة للموظف <strong>${esc(e?.full_name || '')}</strong>.</p>
-          ${fieldText('كلمة المرور الجديدة', 'password', '', { type: 'password', placeholder: '4 أحرف على الأقل' })}`,
+          ${fieldText('كلمة المرور الجديدة', 'password', '', { type: 'password', placeholder: '8 أحرف على الأقل' })}`,
       };
 
       const TITLES = {
@@ -334,14 +334,14 @@ const base = import.meta.env.BASE_URL;
         try {
           if (entity === 'password') {
             const pwd = modalForm.password.value;
-            if (pwd.length < 4) throw { message: 'كلمة المرور يجب ألا تقل عن 4 أحرف.' };
+            if (pwd.length < 8) throw { message: 'كلمة المرور يجب ألا تقل عن 8 أحرف.' };
             await resetEmployeePassword(id, { password: pwd });
             closeModal();
             toast('تم تحديث كلمة المرور.');
           } else {
             const body = collect(entity);
-            if (entity === 'staff' && !id && (body.password || '').length < 4) {
-              throw { message: 'كلمة المرور يجب ألا تقل عن 4 أحرف.' };
+            if (entity === 'staff' && !id && (body.password || '').length < 8) {
+              throw { message: 'كلمة المرور يجب ألا تقل عن 8 أحرف.' };
             }
             if (id) await UPDATE[entity](id, body);
             else await CREATE[entity](body);

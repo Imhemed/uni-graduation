@@ -83,7 +83,7 @@ const base = import.meta.env.BASE_URL;
     let price = 0, baseFee = 0, student = null;
 
     const $ = (x) => document.getElementById(x);
-    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fail = (m) => { loading.classList.add('hidden'); errorBox.textContent = m; errorBox.classList.remove('hidden'); };
 
     function recalc() {

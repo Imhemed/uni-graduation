@@ -107,7 +107,7 @@ import PortalLayout from '../layouts/PortalLayout.astro';
       let lastReport = null; // keep the latest report for CSV export
 
       const $ = (s) => document.getElementById(s);
-      const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
       const loading = $('rp-loading');
       const empty = $('rp-empty');

@@ -48,7 +48,7 @@ const base = import.meta.env.BASE_URL;
     const qEl = document.getElementById('q');
     const majorEl = document.getElementById('major');
     let timer = null;
-    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     (async () => {
       try {

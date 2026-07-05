@@ -422,7 +422,7 @@ function resetEmployeePassword(ctx) {
   const e = byId(ctx.db.employees, ctx.params.id);
   if (!e) throw new ApiError(404, 'الموظف غير موجود.');
   const pwd = ctx.body?.password;
-  if (pwd !== undefined && String(pwd).length < 4) throw new ApiError(422, 'كلمة المرور يجب ألا تقل عن 4 أحرف.');
+  if (pwd !== undefined && String(pwd).length < 8) throw new ApiError(422, 'كلمة المرور يجب ألا تقل عن 8 أحرف.');
   // Mock: passwords aren't persisted here — the backend will hash & store.
   return { ok: true, message: 'تم تحديث كلمة المرور.' };
 }
