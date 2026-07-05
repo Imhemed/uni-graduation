@@ -72,12 +72,15 @@ export async function call(method, path, { params, body } = {}) {
       }
     }
     if (res.status === 401) {
-      logout(false);
+      // Session is truly dead (refresh failed): clear it and send the user to
+      // the login page rather than leaving them on a half-rendered page.
+      logout(true);
       throw new ApiError(401, 'انتهت الجلسة. يرجى تسجيل الدخول من جديد.');
     }
-  } else if (res.status === 401) {
-    throw new ApiError(401, 'انتهت الجلسة. يرجى تسجيل الدخول من جديد.');
   }
+  // A 401 straight from an /auth/ endpoint (e.g. a wrong password on login) is a
+  // genuine server response — fall through so its `detail` is surfaced below,
+  // not masked by a generic "session expired" message.
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
