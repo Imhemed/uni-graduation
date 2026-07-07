@@ -55,10 +55,10 @@ page  →  endpoints.js  →  client.js  →  ┌─ mock/  (in-browser fake bac
 ```
 
 - **`src/lib/api/endpoints.js`** — the single API surface: named functions (`getStudent`, `createPayment`, …). Pages import only from here.
-- **`src/lib/api/client.js`** — the single HTTP client: adds the base URL + `Bearer` token, handles `401`, parses JSON, throws a uniform `ApiError`. Routes to the mock or the live server based on config.
+- **`src/lib/api/client.js`** — the single HTTP client: adds the base URL, sends the HttpOnly auth cookies (`credentials: 'same-origin'`), transparently refreshes the session on `401` and retries once, parses JSON, throws a uniform `ApiError`. Routes to the mock or the live server based on config.
 - **`src/lib/api/mock/`** — an in-memory backend persisted to `localStorage`, enforcing the real business rules (overpayment block, debt check, role protection, date validation) so the UI behaves exactly as it will against the real API.
 - **`src/lib/config.js` + `public/config.json`** — runtime configuration kept *outside* the build, so the same `dist/` can be re-pointed at any LAN server by editing one file.
-- **`src/lib/auth.js`** — JWT + current user in `localStorage`, `requireAuth(minRole)` route guards (UX only — the backend enforces real auth).
+- **`src/lib/auth.js`** — session helpers: the tokens live in **HttpOnly cookies** set by the backend (unreadable by JS); only the non-sensitive current user is cached in `localStorage`. `requireAuth(minRole)` route guards (UX only — the backend enforces real auth).
 - **`src/lib/money.js`** — the single source of truth for cost / paid / remaining / fully-paid (mirrors the backend formulas).
 
 > Pattern: an **API service layer** built as a **facade** over `fetch`, with the mock and live backends as interchangeable **adapters** selected by config (dependency inversion) — so the UI depends on no concrete backend.
@@ -158,6 +158,6 @@ The mock encodes the expected request/response shapes for the backend. The full 
 ## 📝 Notes & trade-offs
 
 - **Client-side role guards are UX only.** The backend must enforce auth and roles on every request.
-- **JWT in `localStorage`** is XSS-exposed — an accepted trade-off for an offline LAN graduation project.
+- **Auth tokens live in HttpOnly cookies** (set by the backend, with refresh rotation + revocation) — JavaScript cannot read them, so an XSS bug can't steal the session. Only the non-sensitive user object is cached in `localStorage` for rendering.
 - **Arabic-only / RTL** by design; numbers use Western digits with Arabic month names.
 - Planning/reference docs (`DRD.md`, `PLAN.md`, …) are intentionally git-ignored.
